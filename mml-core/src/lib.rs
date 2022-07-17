@@ -1,3 +1,11 @@
+// mml-core
+// author: Leonardone @ NEETSDKASU
+
+mod mml;
+mod tone_control;
+
+pub use mml::MMLError;
+
 #[cfg(test)]
 mod tests {
     #[test]
