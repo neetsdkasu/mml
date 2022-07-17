@@ -1,0 +1,13 @@
+[package]
+name = "mml-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Leonardone <neetsdkasu@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://bitbucket.org/neetsdkasu/mml"
+description = "MML-on-OAPのMMLからMIDIファイルへの変換処理を移植したもの"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
