@@ -6,6 +6,11 @@ mod tone_control;
 
 pub use mml::MMLError;
 
+pub fn dummy_api() {
+    let r = mml::parse("");
+    eprintln!("{:?}", r);
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

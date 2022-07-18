@@ -11,3 +11,4 @@ description = "MML-on-OAPのMMLからMIDIファイルへの変換処理を移植
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+java_data_io = { package = "java_data_io_rs", git = "https://bitbucket.org/neetsdkasu/java_data_io_rs", tag="v0.5.3" }
