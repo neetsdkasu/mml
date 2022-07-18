@@ -27,6 +27,7 @@ pub enum MMLError {
     InvalidDurationEnd(Position),
     InvalidIncreaseOctave(Position),
     InvalidLength(Position),
+    InvalidNote(Position),
     InvalidOctaveValue(Position),
     InvalidResolution(Position),
     InvalidTempo(Position),
@@ -78,7 +79,7 @@ struct Mml<'a> {
     tempo: i32,
     resolution: i32,
 
-    // current octave
+    // current octave (note C value)
     octave: i32,
 
     // default duration
@@ -367,7 +368,46 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_note<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        let mut note = self.octave;
+        match self.get_char() {
+            Some('C' | 'c') => {}
+            Some('D' | 'd') => note += 2,
+            Some('E' | 'e') => note += 4,
+            Some('F' | 'f') => note += 5,
+            Some('G' | 'g') => note += 7,
+            Some('A' | 'a') => note += 9,
+            Some('B' | 'b') => note += 11,
+            _ => return Ok(false),
+        }
+
+        // if !matches(note, 0..=127) {
+        if !(0..=127).contains(&note) {
+            return self.error(InvalidNote);
+        }
+
+        match self.next_char() {
+            Some('+' | '#') => {
+                note += 1;
+                self.next_char();
+            }
+            Some('-') => {
+                note -= 1;
+                self.next_char();
+            }
+            _ => {}
+        }
+
+        // if !matches(note, 0..=127) {
+        if !(0..=127).contains(&note) {
+            return self.error(InvalidNote);
+        }
+
+        let dur: i32 = self.parse_duration()?;
+
+        dst.write_byte(note)?;
+        dst.write_byte(dur)?;
+
+        Ok(true)
     }
 
     fn parse_rest<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
