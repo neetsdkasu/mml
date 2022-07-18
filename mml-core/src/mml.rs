@@ -22,7 +22,11 @@ pub enum MMLError {
     InvalidChangeOctave(Position),
     InvalidCharacter(Position),
     InvalidDecreaseOctave(Position),
+    InvalidDefaultDurationValue(Position),
+    InvalidDuration(Position),
+    InvalidDurationEnd(Position),
     InvalidIncreaseOctave(Position),
+    InvalidLength(Position),
     InvalidOctaveValue(Position),
     InvalidResolution(Position),
     InvalidTempo(Position),
@@ -69,10 +73,15 @@ pub(crate) fn parse(src: &str) -> Result<Vec<u8>> {
 struct Mml<'a> {
     src: std::str::Chars<'a>,
     cur: Position,
+
     next_block_id: i32,
     tempo: i32,
     resolution: i32,
+
+    // current octave
     octave: i32,
+
+    // default duration
     duration: i32,
 }
 
@@ -338,7 +347,23 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_change_duration(&mut self) -> Result<bool> {
-        todo!()
+        if self
+            .get_char()
+            .filter(|ch| *ch == 'L' || *ch == 'l')
+            .is_none()
+        {
+            return Ok(false);
+        }
+
+        match self.next_char() {
+            Some('(') => {}
+            Some(ch) if ch.is_ascii_digit() => {}
+            _ => return self.error(InvalidDefaultDurationValue),
+        }
+
+        self.duration = self.parse_duration()?;
+
+        Ok(true)
     }
 
     fn parse_note<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
@@ -363,6 +388,54 @@ impl<'a> Mml<'a> {
 
     fn parse_volume<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
         todo!()
+    }
+
+    fn parse_duration(&mut self) -> Result<i32> {
+        match self.get_char() {
+            Some(ch) if ch.is_ascii_digit() => {}
+            Some('(') => {
+                if self.next_char().filter(char::is_ascii_digit).is_none() {
+                    return self.error(InvalidDuration);
+                }
+                let dur: i32 = self.parse_number();
+                // if !matches!(dur, 0..=127) {
+                if !(0..=127).contains(&dur) {
+                    return self.error(InvalidDuration);
+                }
+                // if matches!(self.get_char(), Some(')')) {
+                if let Some(')') = self.get_char() {
+                    self.next_char();
+                    return Ok(dur);
+                } else {
+                    return self.error(InvalidDurationEnd);
+                }
+            }
+            _ => return Ok(self.duration),
+        }
+
+        let mut num: i32 = self.parse_number();
+        if !(1..=self.resolution).contains(&num) {
+            return self.error(InvalidLength);
+        }
+
+        let mut dur: i32 = (self.resolution / num).max(1);
+
+        while let Some('.') = self.get_char() {
+            num <<= 1;
+            if num > self.resolution {
+                return self.error(InvalidLength);
+            }
+            // max(1)って計算、確実に1を足すって、それって正しいの？何故こうした昔の俺･･･
+            dur += (self.resolution / num).max(1);
+            self.next_char();
+        }
+
+        // if matches!(dur, 1..=127) {
+        if (1..=127).contains(&dur) {
+            Ok(dur)
+        } else {
+            self.error(InvalidLength)
+        }
     }
 }
 
