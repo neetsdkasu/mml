@@ -38,6 +38,7 @@ pub enum MMLError {
     InvalidRepeatNumber(Position),
     InvalidResolution(Position),
     InvalidTempo(Position),
+    InvalidVolume(Position),
     IoError(io::Error),
     UnexpectedRemains(Position),
 }
@@ -137,7 +138,7 @@ impl<'a> Mml<'a> {
     fn next_char(&mut self) -> Option<char> {
         let character = self.src.next();
         self.cur.col += 1;
-        if let Some('\n') = character {
+        if matches!(character, Some('\n')) {
             self.cur.col = 1;
             self.cur.row += 1;
         }
@@ -180,11 +181,7 @@ impl<'a> Mml<'a> {
     fn parse_tempo(&mut self) -> Result<()> {
         self.skip_whitespaces();
 
-        if self
-            .get_char()
-            .filter(|ch| *ch == 'T' || *ch == 't')
-            .is_none()
-        {
+        if !matches!(self.get_char(), Some('T' | 't')) {
             return Ok(());
         }
         self.next_char();
@@ -202,9 +199,10 @@ impl<'a> Mml<'a> {
     fn parse_resolution(&mut self) -> Result<()> {
         self.skip_whitespaces();
 
-        if self.get_char().filter(|ch| *ch == '%').is_none() {
+        if !matches!(self.get_char(), Some('%')) {
             return Ok(());
         }
+
         self.next_char();
 
         let resolution: i32 = self.parse_number();
@@ -225,7 +223,7 @@ impl<'a> Mml<'a> {
     fn parse_block<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
         self.skip_whitespaces();
 
-        if self.get_char().filter(|ch| *ch == '{').is_none() {
+        if !matches!(self.get_char(), Some('{')) {
             return Ok(false);
         }
 
@@ -250,7 +248,7 @@ impl<'a> Mml<'a> {
 
         self.skip_whitespaces();
 
-        if self.get_char().filter(|ch| *ch == '}').is_none() {
+        if !matches!(self.get_char(), Some('}')) {
             return self.error(InvalidBlockEnd);
         }
 
@@ -298,11 +296,8 @@ impl<'a> Mml<'a> {
                 // リピート記述の読み込み
             } else if self.parse_volume(dst)? {
                 // ボリューム変更コマンド
-            } else if self
-                .get_char()
-                .filter(|ch| *ch == ']' || *ch == '}')
-                .is_some()
-            {
+            } else if matches!(self.get_char(), Some(']' | '}')) {
+                // ブロック/リピートの終了
                 break;
             } else {
                 return self.error(InvalidCharacter);
@@ -371,11 +366,7 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_change_duration(&mut self) -> Result<bool> {
-        if self
-            .get_char()
-            .filter(|ch| *ch == 'L' || *ch == 'l')
-            .is_none()
-        {
+        if !matches!(self.get_char(), Some('L' | 'l')) {
             return Ok(false);
         }
 
@@ -432,11 +423,7 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_rest<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        if self
-            .get_char()
-            .filter(|ch| *ch == 'R' || *ch == 'r')
-            .is_none()
-        {
+        if !matches!(self.get_char(), Some('R' | 'r')) {
             return Ok(false);
         }
 
@@ -451,11 +438,7 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_note_value<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        if self
-            .get_char()
-            .filter(|ch| *ch == 'N' || *ch == 'n')
-            .is_none()
-        {
+        if !matches!(self.get_char(), Some('N' | 'n')) {
             return Ok(false);
         }
 
@@ -473,7 +456,7 @@ impl<'a> Mml<'a> {
             return self.error(InvalidNoteValue);
         }
 
-        if self.get_char().filter(|ch| *ch == ')').is_none() {
+        if !matches!(self.get_char(), Some(')')) {
             return self.error(InvalidNoteValueEnd);
         }
 
@@ -490,7 +473,7 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_play_block<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        if self.get_char().filter(|ch| *ch == '$').is_none() {
+        if !matches!(self.get_char(), Some('$')) {
             return Ok(false);
         }
 
@@ -511,7 +494,7 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_repeat<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        if self.get_char().filter(|ch| *ch == '[').is_none() {
+        if !matches!(self.get_char(), Some('[')) {
             return Ok(false);
         }
 
@@ -536,9 +519,11 @@ impl<'a> Mml<'a> {
 
         self.skip_whitespaces();
 
-        if self.get_char().filter(|ch| *ch == '[').is_none() {
+        if !matches!(self.get_char(), Some(']')) {
             return self.error(InvalidRepeatEnd);
         }
+
+        self.next_char();
 
         if event == 3 && buf.len() == 2 {
             dst.write_byte(tone_control::REPEAT.into())?;
@@ -554,7 +539,24 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_volume<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        if !matches!(self.get_char(), Some('V' | 'v')) {
+            return Ok(false);
+        }
+
+        if self.next_char().filter(char::is_ascii_digit).is_none() {
+            return self.error(InvalidVolume);
+        }
+
+        let vol: i32 = self.parse_number();
+
+        if !(0..=100).contains(&vol) {
+            return self.error(InvalidVolume);
+        }
+
+        dst.write_byte(tone_control::SET_VOLUME.into())?;
+        dst.write_byte(vol)?;
+
+        Ok(true)
     }
 
     // 音長の記述があれば読み込む。
@@ -572,7 +574,7 @@ impl<'a> Mml<'a> {
                 if !(0..=127).contains(&dur) {
                     return self.error(InvalidDuration);
                 }
-                if let Some(')') = self.get_char() {
+                if matches!(self.get_char(), Some(')')) {
                     self.next_char();
                     return Ok(dur);
                 } else {
@@ -654,14 +656,14 @@ mod tests {
     fn it_works() {
         let res1 = parse(SUMM_SUMM_SUMM);
 
-        assert!(res1.is_ok());
+        assert!(res1.is_ok(), "{:?}", res1);
 
         let res2 = parse(KUCKUCK_KUCKUCK_RUFTS_AUS_DEM_WALD);
 
-        assert!(res2.is_ok());
+        assert!(res2.is_ok(), "{:?}", res2);
 
         let res3 = parse(MORGEN_KOMMT_DER_WEIHNACHTSMANN);
 
-        assert!(res3.is_ok());
+        assert!(res3.is_ok(), "{:?}", res3);
     }
 }
