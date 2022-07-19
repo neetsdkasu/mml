@@ -202,6 +202,7 @@ fn do_translate(tseq: &[u8], inst: i8) -> Result<Vec<u8>, java_data_io::Error> {
     }
 
     // end of track (FF 2F 00)
+    dst.write_byte(0)?; // delta time
     dst.write(&[0xFF, 0x2F, 0x00])?;
 
     let track_size: u32 = (buf.len() - TRACK_START_POS) as u32;
