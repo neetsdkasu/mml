@@ -6,7 +6,7 @@ use java_data_io::JavaDataOutput;
 use std::io;
 use MMLError::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Position {
     pub character: Option<char>,
     pub col: usize,
@@ -28,7 +28,11 @@ pub enum MMLError {
     InvalidIncreaseOctave(Position),
     InvalidLength(Position),
     InvalidNote(Position),
+    InvalidNoteValue(Position),
+    InvalidNoteValueEnd(Position),
+    InvalidNoteValueStart(Position),
     InvalidOctaveValue(Position),
+    InvalidPlayBlockId(Position),
     InvalidResolution(Position),
     InvalidTempo(Position),
     IoError(io::Error),
@@ -106,7 +110,7 @@ impl<'a> Mml<'a> {
     }
 
     fn error<T>(&self, f: fn(p: Position) -> MMLError) -> Result<T> {
-        Err(f(self.cur))
+        Err(f(self.cur.clone()))
     }
 
     fn validate_remains(&mut self) -> Result<()> {
@@ -129,7 +133,6 @@ impl<'a> Mml<'a> {
     fn next_char(&mut self) -> Option<char> {
         let character = self.src.next();
         self.cur.col += 1;
-        // if matches!(character, Some('\n')) { // マッチかイフレットか
         if let Some('\n') = character {
             self.cur.col = 1;
             self.cur.row += 1;
@@ -148,23 +151,24 @@ impl<'a> Mml<'a> {
         }
     }
 
+    // 数字があれば数値として読み込む。
+    // 呼び出し時に数字が無い場合は0を返す。
+    // 数字以外の文字があったらそこで読み込みをやめる。
+    // 数値が1000を超える場合は0x10000を返す。(何故･･･)。
+    // 数字があることが前提なら呼び出し側が事前にチェックする必要がある。(頭文字が数字かを確認すればOK)。
     fn parse_number(&mut self) -> i32 {
         let mut number: i32 = 0;
-        while let Some(ch) = self.get_char() {
-            if ch.is_ascii_digit() {
-                let d = ch.to_digit(10).unwrap() as i32;
-                number = number * 10 + d;
-                if number > 1000 {
-                    // 元のソースコードがこうなっているが
-                    // 何故こう処理してるのかわからんし
-                    // nextCharしてないのも謎
-                    // つまり最後の文字は消費しない形になっている
-                    return 0x10000;
-                }
-                self.next_char();
-            } else {
-                break;
+        while let Some(ch) = self.get_char().filter(char::is_ascii_digit) {
+            let d: i32 = ch.to_digit(10).unwrap() as i32;
+            number = number * 10 + d;
+            if number > 1000 {
+                // 元のソースコードがこうなっているが
+                // 何故こう処理してるのかわからんし
+                // nextCharしてないのも謎
+                // つまり最後の文字は消費しない形になっている
+                return 0x10000;
             }
+            self.next_char();
         }
         number
     }
@@ -183,7 +187,6 @@ impl<'a> Mml<'a> {
 
         let tempo: i32 = self.parse_number();
 
-        // if matches!(tempo, 20..=508) { // レンジとマッチどっちがいいのか？
         if (20..=508).contains(&tempo) {
             self.tempo = tempo;
             Ok(())
@@ -202,7 +205,6 @@ impl<'a> Mml<'a> {
 
         let resolution: i32 = self.parse_number();
 
-        // if matches!(resolution, 1..=127) { // レンジとマッチどっちがいいのか？
         if (1..=127).contains(&resolution) {
             self.resolution = resolution;
             Ok(())
@@ -258,27 +260,40 @@ impl<'a> Mml<'a> {
         Ok(true)
     }
 
+    // シーケンスコマンドをトーンシーケンスイベントに変換する
     fn parse_sequence<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<i32> {
-        let mut event: i32 = 0;
         self.skip_whitespaces();
+
+        // 最下位ビット: トーンシーケンスイベントの有無
+        // それ以外のビット: 音出し・無音のトーンシーケンスイベントの個数(イベントが1個だけであるときに呼び出し側が特別な処理をする場合がある)
+        let mut event: i32 = 0;
+
         while self.has_char() {
             // clippyさん･･･何故わかってくれぬ･･･
             #[allow(clippy::if_same_then_else)]
             if self.parse_change_octave()? {
                 self.skip_whitespaces();
+                // これは内部データの更新コマンドだから次のコマンドへ
                 continue;
             } else if self.parse_change_duration()? {
                 self.skip_whitespaces();
+                // これは内部データの更新コマンドだから次のコマンドへ
                 continue;
             } else if self.parse_note(dst)? {
+                // 音出しコマンド (CDEFGABで指定)
                 event += 2;
             } else if self.parse_rest(dst)? {
+                // 無音コマンド
                 event += 2;
             } else if self.parse_note_value(dst)? {
+                // 音出しコマンド (ノート番号で指定)
                 event += 2;
             } else if self.parse_play_block(dst)? {
+                // 指定IDのブロックの再生コマンド
             } else if self.parse_repeat(dst)? {
+                // リピート記述の読み込み
             } else if self.parse_volume(dst)? {
+                // ボリューム変更コマンド
             } else if self
                 .get_char()
                 .filter(|ch| *ch == ']' || *ch == '}')
@@ -288,9 +303,11 @@ impl<'a> Mml<'a> {
             } else {
                 return self.error(InvalidCharacter);
             }
+
             self.skip_whitespaces();
             event |= 1;
         }
+
         Ok(event)
     }
 
@@ -322,8 +339,9 @@ impl<'a> Mml<'a> {
             Some('-') => {}
             Some(ch) if ch.is_ascii_digit() => {
                 let oct: i32 = self.parse_number();
+
                 self.octave = (tone_control::C4 as i32) + (oct - 4) * 12;
-                // if matches!(self.octave, 0..=127) {
+
                 if (0..=127).contains(&self.octave) {
                     return Ok(true);
                 } else {
@@ -338,8 +356,9 @@ impl<'a> Mml<'a> {
         }
 
         let oct: i32 = self.parse_number();
+
         self.octave = (tone_control::C4 as i32) - (oct + 4) * 12;
-        // if matches!(self.octave, 0..=127) {
+
         if (0..=127).contains(&self.octave) {
             Ok(true)
         } else {
@@ -380,7 +399,6 @@ impl<'a> Mml<'a> {
             _ => return Ok(false),
         }
 
-        // if !matches(note, 0..=127) {
         if !(0..=127).contains(&note) {
             return self.error(InvalidNote);
         }
@@ -397,7 +415,6 @@ impl<'a> Mml<'a> {
             _ => {}
         }
 
-        // if !matches(note, 0..=127) {
         if !(0..=127).contains(&note) {
             return self.error(InvalidNote);
         }
@@ -411,15 +428,82 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_rest<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        if self
+            .get_char()
+            .filter(|ch| *ch == 'R' || *ch == 'r')
+            .is_none()
+        {
+            return Ok(false);
+        }
+
+        self.next_char();
+
+        let dur: i32 = self.parse_duration()?;
+
+        dst.write_byte(tone_control::SILENCE.into())?;
+        dst.write_byte(dur)?;
+
+        Ok(true)
     }
 
     fn parse_note_value<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        if self
+            .get_char()
+            .filter(|ch| *ch == 'N' || *ch == 'n')
+            .is_none()
+        {
+            return Ok(false);
+        }
+
+        if self.next_char().filter(|ch| *ch == '(').is_none() {
+            return self.error(InvalidNoteValueStart);
+        }
+
+        if self.next_char().filter(char::is_ascii_digit).is_none() {
+            return self.error(InvalidNoteValue);
+        }
+
+        let note: i32 = self.parse_number();
+
+        if !(0..=127).contains(&note) {
+            return self.error(InvalidNoteValue);
+        }
+
+        if self.get_char().filter(|ch| *ch == ')').is_none() {
+            return self.error(InvalidNoteValueEnd);
+        }
+
+        self.next_char();
+
+        // NOTE-VALUEコマンドはデフォルトの音長がOKなのか…？
+
+        let dur: i32 = self.parse_duration()?;
+
+        dst.write_byte(note)?;
+        dst.write_byte(dur)?;
+
+        Ok(true)
     }
 
     fn parse_play_block<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        if self.get_char().filter(|ch| *ch == '$').is_none() {
+            return Ok(false);
+        }
+
+        if self.next_char().filter(char::is_ascii_digit).is_none() {
+            return self.error(InvalidPlayBlockId);
+        }
+
+        let id: i32 = self.parse_number();
+
+        if !(0..self.next_block_id).contains(&id) {
+            return self.error(InvalidPlayBlockId);
+        }
+
+        dst.write_byte(tone_control::PLAY_BLOCK.into())?;
+        dst.write_byte(id)?;
+
+        Ok(true)
     }
 
     fn parse_repeat<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
@@ -430,6 +514,10 @@ impl<'a> Mml<'a> {
         todo!()
     }
 
+    // 音長の記述があれば読み込む。
+    // 音長の記述が無ければデフォルトの音長を返す。
+    // 音長の記述の書式が不正ならばエラーを返す。
+    //　音長の記述を必須にしたい場合は呼び出し側で確認する必要がある。(音長の書式の頭文字のみ確認すればOK)。
     fn parse_duration(&mut self) -> Result<i32> {
         match self.get_char() {
             Some(ch) if ch.is_ascii_digit() => {}
@@ -438,11 +526,9 @@ impl<'a> Mml<'a> {
                     return self.error(InvalidDuration);
                 }
                 let dur: i32 = self.parse_number();
-                // if !matches!(dur, 0..=127) {
                 if !(0..=127).contains(&dur) {
                     return self.error(InvalidDuration);
                 }
-                // if matches!(self.get_char(), Some(')')) {
                 if let Some(')') = self.get_char() {
                     self.next_char();
                     return Ok(dur);
@@ -470,7 +556,6 @@ impl<'a> Mml<'a> {
             self.next_char();
         }
 
-        // if matches!(dur, 1..=127) {
         if (1..=127).contains(&dur) {
             Ok(dur)
         } else {
@@ -486,5 +571,54 @@ impl From<java_data_io::Error> for MMLError {
             IoError(io_error) => MMLError::IoError(io_error),
             UtfDataFormatError => unreachable!("UtfDataFormatError"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SUMM_SUMM_SUMM: &str = r#"
+        {0 O5 L4 D C > B R }
+        {1 O4 L8 A B < C > A G4 R4 }
+        {2 $0 $1 }
+        $2 [2 O4 L8 B < C D > B A B < C > A ] $2
+    "#;
+
+    const KUCKUCK_KUCKUCK_RUFTS_AUS_DEM_WALD: &str = r#"
+        T150%96{0GFGF2.}O5[2C>AR]$0GGAB-2GAAB-<[3C2>A]$0
+    "#;
+
+    const MORGEN_KOMMT_DER_WEIHNACHTSMANN: &str = r#"
+        T104
+        {0
+            L8
+            FF<CC
+            DDC4
+            >B-B-AA
+            G4FR
+        }
+        $0
+        [2
+            L8
+            <CC>B-B-
+            AAG4
+        ]
+        $0    
+    "#;
+
+    #[test]
+    fn it_works() {
+        let res1 = parse(SUMM_SUMM_SUMM);
+
+        assert!(res1.is_ok());
+
+        let res2 = parse(KUCKUCK_KUCKUCK_RUFTS_AUS_DEM_WALD);
+
+        assert!(res2.is_ok());
+
+        let res3 = parse(MORGEN_KOMMT_DER_WEIHNACHTSMANN);
+
+        assert!(res3.is_ok());
     }
 }
