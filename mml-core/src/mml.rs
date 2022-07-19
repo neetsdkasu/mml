@@ -33,6 +33,9 @@ pub enum MMLError {
     InvalidNoteValueStart(Position),
     InvalidOctaveValue(Position),
     InvalidPlayBlockId(Position),
+    InvalidRepeat(Position),
+    InvalidRepeatEnd(Position),
+    InvalidRepeatNumber(Position),
     InvalidResolution(Position),
     InvalidTempo(Position),
     IoError(io::Error),
@@ -41,6 +44,7 @@ pub enum MMLError {
 
 pub(crate) type Result<T> = std::result::Result<T, MMLError>;
 
+// MMLで記述されたコマンドをトーンシーケンスイベント列に変換する
 pub(crate) fn parse(src: &str) -> Result<Vec<u8>> {
     let mut mml = Mml::new(src);
 
@@ -48,7 +52,7 @@ pub(crate) fn parse(src: &str) -> Result<Vec<u8>> {
 
     mml.parse_resolution()?;
 
-    let mut buf = Vec::<u8>::new();
+    let mut buf: Vec<u8> = Vec::new();
     let mut dst = JavaDataOutput::new(&mut buf);
 
     dst.write_byte(tone_control::VERSION.into())?;
@@ -507,7 +511,46 @@ impl<'a> Mml<'a> {
     }
 
     fn parse_repeat<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
-        todo!()
+        if self.get_char().filter(|ch| *ch == '[').is_none() {
+            return Ok(false);
+        }
+
+        if self.next_char().filter(char::is_ascii_digit).is_none() {
+            return self.error(InvalidRepeat);
+        }
+
+        let multiplier: i32 = self.parse_number();
+
+        if !(2..=127).contains(&multiplier) {
+            return self.error(InvalidRepeatNumber);
+        }
+
+        let mut buf: Vec<u8> = Vec::new();
+        let mut tmp = JavaDataOutput::new(&mut buf);
+
+        let event: i32 = self.parse_sequence(&mut tmp)?;
+
+        if event == 0 || buf.len() == 0 {
+            return self.error(InvalidRepeat);
+        }
+
+        self.skip_whitespaces();
+
+        if self.get_char().filter(|ch| *ch == '[').is_none() {
+            return self.error(InvalidRepeatEnd);
+        }
+
+        if event == 3 && buf.len() == 2 {
+            dst.write_byte(tone_control::REPEAT.into())?;
+            dst.write_byte(multiplier)?;
+            dst.write(&buf)?;
+        } else {
+            for _ in 0..multiplier {
+                dst.write(&buf)?;
+            }
+        }
+
+        Ok(true)
     }
 
     fn parse_volume<W: io::Write>(&mut self, dst: &mut JavaDataOutput<W>) -> Result<bool> {
