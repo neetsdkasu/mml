@@ -43,7 +43,7 @@ pub enum MMLError {
     UnexpectedRemains(Position),
 }
 
-pub(crate) type Result<T> = std::result::Result<T, MMLError>;
+type Result<T> = std::result::Result<T, MMLError>;
 
 // MMLで記述されたコマンドをトーンシーケンスイベント列に変換する
 pub(crate) fn parse(src: &str) -> Result<Vec<u8>> {
@@ -513,7 +513,7 @@ impl<'a> Mml<'a> {
 
         let event: i32 = self.parse_sequence(&mut tmp)?;
 
-        if event == 0 || buf.len() == 0 {
+        if event == 0 || buf.is_empty() {
             return self.error(InvalidRepeat);
         }
 
