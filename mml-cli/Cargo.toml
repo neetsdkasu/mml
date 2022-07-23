@@ -6,9 +6,9 @@ authors = ["Leonardone <neetsdkasu@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://bitbucket.org/neetsdkasu/mml"
-description = "MML-on-OAPのMMLからMIDIファイルへの変換処理を移植したものをコマンドラインから使うCLIアプリ"
+description = "MML-on-OAPのMMLからMIDIのSMFファイルへの変換処理を移植したものをコマンドラインから使うCLIアプリ"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mml_core = { package = "mml-core", path = "../mml-core" }
+mml-core = { package = "mml-core", path = "../mml-core" }
