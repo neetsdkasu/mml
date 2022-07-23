@@ -167,7 +167,7 @@ pub enum Instrument {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Category {
+pub enum InstrumentCategory {
     Piano = 1,
     ChromaticPrecussion,
     Organ,
@@ -336,8 +336,8 @@ pub static INSTRUMENTS: [Instrument; 128] = {
     ]
 };
 
-pub static CATEGORIES: [Category; 16] = {
-    use Category::*;
+pub static INSTRUMENT_CATEGORIES: [InstrumentCategory; 16] = {
+    use InstrumentCategory::*;
     [
         Piano,
         ChromaticPrecussion,
@@ -359,10 +359,10 @@ pub static CATEGORIES: [Category; 16] = {
 };
 
 impl Instrument {
-    pub fn category(self) -> Category {
+    pub fn category(self) -> InstrumentCategory {
         let index = self as usize;
         assert!(0 < index && index <= 128);
-        CATEGORIES[(index - 1) / 8]
+        INSTRUMENT_CATEGORIES[(index - 1) / 8]
     }
 }
 
@@ -416,7 +416,7 @@ impl Instrument {
     }
 }
 
-impl std::fmt::Display for Category {
+impl std::fmt::Display for InstrumentCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.name(), f)
     }
@@ -426,7 +426,7 @@ static mut CATEGORY_NAME: [&str; 16] = [""; 16];
 
 static CATEGORY_NAME_INIT: Once = Once::new();
 
-impl Category {
+impl InstrumentCategory {
     pub fn name(self) -> &'static str {
         CATEGORY_NAME_INIT.call_once(|| {
             let src = include_str!("inst_category_name.in");
@@ -447,7 +447,7 @@ static mut CATEGORY_NAME_JA: [&str; 16] = [""; 16];
 
 static CATEGORY_NAME_JA_INIT: Once = Once::new();
 
-impl Category {
+impl InstrumentCategory {
     pub fn name_ja(self) -> &'static str {
         CATEGORY_NAME_JA_INIT.call_once(|| {
             let src = include_str!("inst_category_name_ja.in");
@@ -464,7 +464,7 @@ impl Category {
     }
 }
 
-impl Category {
+impl InstrumentCategory {
     pub fn instruments(self) -> &'static [Instrument] {
         let index = self as usize;
         assert!(0 < index && index <= 16);
@@ -501,18 +501,33 @@ mod tests {
         assert_eq!(Instrument::TinkleBell.name_ja(), "ティンカ・ベル");
         assert_eq!(Instrument::Gunshot.name_ja(), "ガン・ショット");
 
-        assert_eq!(Instrument::AcousticGrandPiano.category(), Category::Piano);
-        assert_eq!(Instrument::OrchestraHit.category(), Category::Ensemble);
-        assert_eq!(Instrument::TinkleBell.category(), Category::Percussive);
-        assert_eq!(Instrument::Gunshot.category(), Category::SoundEffects);
+        assert_eq!(
+            Instrument::AcousticGrandPiano.category(),
+            InstrumentCategory::Piano
+        );
+        assert_eq!(
+            Instrument::OrchestraHit.category(),
+            InstrumentCategory::Ensemble
+        );
+        assert_eq!(
+            Instrument::TinkleBell.category(),
+            InstrumentCategory::Percussive
+        );
+        assert_eq!(
+            Instrument::Gunshot.category(),
+            InstrumentCategory::SoundEffects
+        );
 
-        assert_eq!(Category::Piano.name(), "Piano");
-        assert_eq!(Category::SoundEffects.name(), "Sound Effects");
+        assert_eq!(InstrumentCategory::Piano.name(), "Piano");
+        assert_eq!(InstrumentCategory::SoundEffects.name(), "Sound Effects");
 
-        assert_eq!(Category::Piano.name_ja(), "ピアノ");
-        assert_eq!(Category::SoundEffects.name_ja(), "サウンド・エフェクト");
+        assert_eq!(InstrumentCategory::Piano.name_ja(), "ピアノ");
+        assert_eq!(
+            InstrumentCategory::SoundEffects.name_ja(),
+            "サウンド・エフェクト"
+        );
 
-        assert_eq!(Category::Piano.instruments(), {
+        assert_eq!(InstrumentCategory::Piano.instruments(), {
             use Instrument::*;
             [
                 AcousticGrandPiano,
@@ -525,7 +540,7 @@ mod tests {
                 Clavinet,
             ]
         });
-        assert_eq!(Category::SoundEffects.instruments(), {
+        assert_eq!(InstrumentCategory::SoundEffects.instruments(), {
             use Instrument::*;
             [
                 GuitarFretNoise,

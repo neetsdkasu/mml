@@ -6,7 +6,7 @@ mod midi;
 mod mml;
 mod tone_control;
 
-pub use inst::*;
+pub use inst::{Instrument, InstrumentCategory, INSTRUMENTS, INSTRUMENT_CATEGORIES};
 pub use mml::MMLError;
 
 pub fn convert(src: &str, inst: Instrument) -> Result<Vec<u8>, MMLError> {
