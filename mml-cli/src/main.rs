@@ -11,6 +11,7 @@ fn main() -> Result<(), ()> {
             return Err(());
         }
         Ok(Command::ListInst) => list_inst(),
+        Ok(Command::ShowMmlSyntax) => show_mml_syntax(),
         Ok(Command::MmlToSmf(args)) => {
             if let Err(msg) = mml2smf(args) {
                 eprintln!("{}", msg);
@@ -38,6 +39,8 @@ USAGE:
             MMLが記述されたテキストファイルからSMFファイルを生成します
     {bin_name} list-instruments
             mml2smfコマンドで使用できる楽器一覧を表示します
+    {bin_name} show-mml-syntax
+            MMLの構文の説明を表示します
     {bin_name} [-h | --help]
             このコマンドヘルプを表示します
 
@@ -56,6 +59,7 @@ enum Command {
     ListInst,
     MmlToSmf(MmlToSmfArgs),
     ShowVersion,
+    ShowMmlSyntax,
 }
 
 fn parse_args() -> Result<Command, Option<String>> {
@@ -71,15 +75,8 @@ fn parse_args() -> Result<Command, Option<String>> {
             Ok(args) => Ok(Command::MmlToSmf(args)),
             Err(msg) => Err(Some(msg)),
         },
-        "list-instruments" => {
-            if iter.next().is_none() {
-                Ok(Command::ListInst)
-            } else {
-                Err(Some(
-                    "list-instrumentsコマンドでオプション引数は指定できません".into(),
-                ))
-            }
-        }
+        "list-instruments" => Ok(Command::ListInst),
+        "show-mml-syntax" => Ok(Command::ShowMmlSyntax),
         unknown => Err(Some(format!("不明のコマンド: {}", unknown))),
     }
 }
@@ -91,6 +88,11 @@ fn list_inst() {
             println!("   {:3} - {}", *inst as i32, inst.name_ja());
         }
     }
+}
+
+fn show_mml_syntax() {
+    const TEXT: &str = include_str!("mml_syntax.in");
+    println!("{}", TEXT);
 }
 
 struct MmlToSmfArgs {
