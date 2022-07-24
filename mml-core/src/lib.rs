@@ -13,7 +13,8 @@ pub fn convert(src: &str, inst: Instrument) -> Result<Vec<u8>, MMLError> {
     let tseq = mml::parse(src)?;
     let inst: i8 = (inst as i32 - 1) as i8;
     assert!(0 <= inst, "inst {}", inst);
-    midi::translate(&tseq, inst).map_err(MMLError::IoError)
+    let smf = midi::translate(&tseq, inst)?;
+    Ok(smf)
 }
 
 #[cfg(test)]

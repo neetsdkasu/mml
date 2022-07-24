@@ -619,6 +619,27 @@ impl From<java_data_io::Error> for MMLError {
     }
 }
 
+impl From<io::Error> for MMLError {
+    fn from(error: io::Error) -> Self {
+        MMLError::IoError(error)
+    }
+}
+
+impl std::fmt::Display for MMLError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl std::error::Error for MMLError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            MMLError::IoError(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
