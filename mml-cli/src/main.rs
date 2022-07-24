@@ -47,58 +47,29 @@ enum Command {
     MmlToSmf(MmlToSmfArgs),
 }
 
-struct MmlToSmfArgs {
-    input_file: Option<String>,
-    output_file: Option<String>,
-    instrument: Option<String>,
-}
-
 fn parse_args() -> Result<Command, Option<String>> {
     let mut iter = std::env::args().skip(1);
     let command = match iter.next() {
         Some(command) => command,
         None => return Err(None),
     };
-    let mut command = match command.as_str() {
-        "-h" | "--help" => return Err(None),
-        "mml2smf" => Command::MmlToSmf(MmlToSmfArgs {
-            input_file: None,
-            output_file: None,
-            instrument: None,
-        }),
+    match command.as_str() {
+        "-h" | "--help" => Err(None),
+        "mml2smf" => match MmlToSmfArgs::parse(&mut iter) {
+            Ok(args) => Ok(Command::MmlToSmf(args)),
+            Err(msg) => Err(Some(msg)),
+        },
         "list-instruments" => {
             if iter.next().is_none() {
-                return Ok(Command::ListInst);
+                Ok(Command::ListInst)
             } else {
-                return Err(Some(
+                Err(Some(
                     "list-instrumentsコマンドでオプション引数は指定できません".into(),
-                ));
+                ))
             }
         }
-        unknown => return Err(Some(format!("不明のコマンド: {}", unknown))),
-    };
-    while let Some(arg) = iter.next() {
-        let mut ok = true;
-        match arg.as_str() {
-            "--input" => match &mut command {
-                Command::MmlToSmf(MmlToSmfArgs { input_file, .. }) => *input_file = iter.next(),
-                _ => ok = false,
-            },
-            "--output" => match &mut command {
-                Command::MmlToSmf(MmlToSmfArgs { output_file, .. }) => *output_file = iter.next(),
-                _ => ok = false,
-            },
-            "--instrument" => match &mut command {
-                Command::MmlToSmf(MmlToSmfArgs { instrument, .. }) => *instrument = iter.next(),
-                _ => ok = false,
-            },
-            _ => ok = false,
-        }
-        if !ok {
-            return Err(Some(format!("不明のオプション: {}", arg)));
-        }
+        unknown => Err(Some(format!("不明のコマンド: {}", unknown))),
     }
-    Ok(command)
 }
 
 fn list_inst() {
@@ -110,6 +81,56 @@ fn list_inst() {
     }
 }
 
+struct MmlToSmfArgs {
+    input_file: String,
+    output_file: Option<String>,
+    instrument: mml_core::Instrument,
+}
+
+impl MmlToSmfArgs {
+    fn parse<T>(iter: &mut T) -> Result<Self, String>
+    where
+        T: Iterator,
+        T::Item: AsRef<str>,
+    {
+        let mut input_file: Option<T::Item> = None;
+        let mut output_file: Option<T::Item> = None;
+        let mut instrument: Option<T::Item> = None;
+        while let Some(arg) = iter.next() {
+            match arg.as_ref() {
+                "--input" => input_file = iter.next(),
+                "--output" => output_file = iter.next(),
+                "--instrument" => instrument = iter.next(),
+                unknown => return Err(format!("不明のオプション: {}", unknown)),
+            }
+        }
+        let input_file = match input_file {
+            Some(file) => file.as_ref().to_owned(),
+            None => return Err("<mml-file>が指定されていません".into()),
+        };
+        let output_file = output_file.map(|s| s.as_ref().to_owned());
+        let instrument = match instrument {
+            None => mml_core::INSTRUMENTS[0],
+            Some(num_str) => {
+                let num = match num_str.as_ref().parse::<usize>() {
+                    Ok(num) => num,
+                    Err(_) => return Err("<instrument-number>の指定が不正です".into()),
+                };
+                if (1..=mml_core::INSTRUMENTS.len()).contains(&num) {
+                    mml_core::INSTRUMENTS[num - 1]
+                } else {
+                    return Err("<instrument-number>の指定が不正です".into());
+                }
+            }
+        };
+        Ok(MmlToSmfArgs {
+            input_file,
+            output_file,
+            instrument,
+        })
+    }
+}
+
 fn mml2smf(
     MmlToSmfArgs {
         input_file,
@@ -117,28 +138,10 @@ fn mml2smf(
         instrument,
     }: MmlToSmfArgs,
 ) -> Result<(), String> {
-    let instrument = match instrument {
-        None => mml_core::INSTRUMENTS[0],
-        Some(num_str) => {
-            let num = match num_str.parse::<usize>() {
-                Ok(num) => num,
-                Err(_) => return Err("<instrument-number>の指定が不正です".into()),
-            };
-            if (1..=mml_core::INSTRUMENTS.len()).contains(&num) {
-                mml_core::INSTRUMENTS[num - 1]
-            } else {
-                return Err("<instrument-number>の指定が不正です".into());
-            }
-        }
-    };
-    let input_file = match &input_file {
-        Some(file) => std::path::Path::new(file),
-        None => return Err("<mml-file>が指定されていません".into()),
-    };
+    let input_file = std::path::Path::new(&input_file);
     if !input_file.is_file() {
         return Err(format!("{}が見つかりません", input_file.display()));
     }
-    eprintln!("{}", input_file.display());
     let output_file = match output_file {
         Some(file) => file,
         None => format!("{}.mid", input_file.file_name().unwrap().to_string_lossy()),
