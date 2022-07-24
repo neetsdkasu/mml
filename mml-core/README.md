@@ -1,30 +1,29 @@
-# MML
+# mml-core
 
-[MML-on-OAP](https://github.com/neetsdkasu/MML-on-OAP)のMMLからSMFファイル（MIDIファイル？）生成部分を移植してみようかと･･･？
-
-MML-on-OAPはガラケー用に作ったやつなのでMMLとかSMFファイル生成とか中身はかなり雑  
-
- - **mml-cli** MMLからSMFファイルを生成するCLI（コマンドラインインターフェース）アプリ
- - **mml-core** MMLからSMFファイルへの変換処理部分（mml-cliから呼び出して使ってる）
+[MML-on-OAP](https://github.com/neetsdkasu/MML-on-OAP)のMMLからMIDIファイル生成部分を移植＆ライブラリ化したもの
 
 
 
-#### mml-cliのインストールと実行
-
-##### インストール
-
-```bash
-git clone https://github.com/neetsdkasu/mml.git
-cd mml
-cargo install --path mml-cli
+#### Cargo.toml
+```toml
+[dependencies]
+mml-core = { package = "mml-core", git = "https://github.com/neetsdkasu/mml.git" }
 ```
 
-##### 実行
-
-MMLを記述した`my_music_mml.txt`ファイルをミュージックボックス（`11`番）の音色で変換したSMFファイルを`my_music.mid`に出力する場合
-```bash
-mml-cli mml2smf my_music_mml.txt --instrument 11 --output my_music.mid
+#### Example
+```rust
+fn main() {
+    let inst = mml_core::Instrument::AcousticGrandPiano;
+    let mml_src: &str = "T150%96{0GFGF2.}O5[2C>AR]$0GGAB-2GAAB-<[3C2>A]$0";
+    match mml_core::convert(mml_src, inst) {
+        Err(error) => eprintln!("{:?}", error),
+        Ok(smf_data) => {
+            std::fs::write("music.mid", smf_data).unwrap();
+        }
+    }
+}
 ```
+
 
 ### MMLの例
 

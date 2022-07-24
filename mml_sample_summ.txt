@@ -1,0 +1,4 @@
+{0 O5 L4 D C > B R }
+{1 O4 L8 A B < C > A G4 R4 }
+{2 $0 $1 }
+$2 [2 O4 L8 B < C D > B A B < C > A ] $2

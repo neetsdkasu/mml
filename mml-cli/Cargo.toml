@@ -1,0 +1,14 @@
+[package]
+name = "mml-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Leonardone <neetsdkasu@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/neetsdkasu/mml"
+description = "MML-on-OAPのMMLからSMFファイル(MIDIファイル)への変換処理を移植したものをコマンドラインから使うCLIアプリ"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mml-core = { package = "mml-core", path = "../mml-core" }

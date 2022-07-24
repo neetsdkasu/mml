@@ -1,0 +1,15 @@
+T104
+{0
+    L8
+    FF<CC
+    DDC4
+    >B-B-AA
+    G4FR
+}
+$0
+[2
+    L8
+    <CC>B-B-
+    AAG4
+]
+$0

@@ -1,15 +1,9 @@
-# MML
+# mml-cli
 
-[MML-on-OAP](https://github.com/neetsdkasu/MML-on-OAP)のMMLからSMFファイル（MIDIファイル？）生成部分を移植してみようかと･･･？
-
-MML-on-OAPはガラケー用に作ったやつなのでMMLとかSMFファイル生成とか中身はかなり雑  
-
- - **mml-cli** MMLからSMFファイルを生成するCLI（コマンドラインインターフェース）アプリ
- - **mml-core** MMLからSMFファイルへの変換処理部分（mml-cliから呼び出して使ってる）
+[MML-on-OAP](https://github.com/neetsdkasu/MML-on-OAP)のMMLからSMFファイル（MIDIファイル？）生成をCLIアプリにしたもの
 
 
-
-#### mml-cliのインストールと実行
+### インストールと実行
 
 ##### インストール
 
@@ -25,6 +19,7 @@ MMLを記述した`my_music_mml.txt`ファイルをミュージックボック�
 ```bash
 mml-cli mml2smf my_music_mml.txt --instrument 11 --output my_music.mid
 ```
+
 
 ### MMLの例
 
