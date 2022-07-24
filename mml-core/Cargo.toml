@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Leonardone <neetsdkasu@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-repository = "https://bitbucket.org/neetsdkasu/mml"
+repository = "https://github.com/neetsdkasu/mml"
 description = "MML-on-OAPのMMLからMIDIのSMFファイルへの変換処理を移植したもの"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
