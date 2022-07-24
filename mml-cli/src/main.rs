@@ -17,13 +17,20 @@ fn main() -> Result<(), ()> {
                 return Err(());
             }
         }
+        Ok(Command::ShowVersion) => {
+            println!(concat!(
+                env!("CARGO_PKG_NAME"),
+                " ",
+                env!("CARGO_PKG_VERSION")
+            ));
+        }
     }
     Ok(())
 }
 
 fn show_usage() {
     println!(
-        r#"{pkg_name} v{version}
+        r#"{pkg_name} {version}
 {description}
 
 USAGE:
@@ -48,6 +55,7 @@ OPTIONS:
 enum Command {
     ListInst,
     MmlToSmf(MmlToSmfArgs),
+    ShowVersion,
 }
 
 fn parse_args() -> Result<Command, Option<String>> {
@@ -58,6 +66,7 @@ fn parse_args() -> Result<Command, Option<String>> {
     };
     match command.as_str() {
         "-h" | "--help" => Err(None),
+        "-v" | "--version" => Ok(Command::ShowVersion),
         "mml2smf" => match MmlToSmfArgs::parse(&mut iter) {
             Ok(args) => Ok(Command::MmlToSmf(args)),
             Err(msg) => Err(Some(msg)),
