@@ -20,7 +20,41 @@ MMLを記述した`my_music_mml.txt`ファイルをミュージックボック�
 mml-cli mml2smf my_music_mml.txt --instrument 11 --output my_music.mid
 ```
 
-#####
+
+### MMLの例
+
+###### 例1: 曲名『 Summ, summ, summ 』
+```
+{0 O5 L4 D C > B R }
+{1 O4 L8 A B < C > A G4 R4 }
+{2 $0 $1 }
+$2 [2 O4 L8 B < C D > B A B < C > A ] $2
+```
+
+###### 例2: 曲名『 Kuckuck, Kuckuck, ruft’s aus dem Wald 』
+```
+T150%96{0GFGF2.}O5[2C>AR]$0GGAB-2GAAB-<[3C2>A]$0
+```
+
+###### 例3: 曲名『 Morgen kommt der Weihnachtsmann 』
+```
+T104
+{0
+    L8
+    FF<CC
+    DDC4
+    >B-B-AA
+    G4FR
+}
+$0
+[2
+    L8
+    <CC>B-B-
+    AAG4
+]
+$0
+```
+
 
 ### MML構文
 
