@@ -4,8 +4,8 @@
 
 MML-on-OAPはガラケー用に作ったやつなのでMMLとかSMFファイル生成とか中身はかなり雑  
 
- - mml-cli MMLからSMFファイルを生成するCLI（コマンドラインインターフェース）アプリ
- - mml-core MMLからSMFファイルへの変換処理部分（mml-cliから呼び出して使ってる）
+ - **mml-cli** MMLからSMFファイルを生成するCLI（コマンドラインインターフェース）アプリ
+ - **mml-core** MMLからSMFファイルへの変換処理部分（mml-cliから呼び出して使ってる）
 
 
 
