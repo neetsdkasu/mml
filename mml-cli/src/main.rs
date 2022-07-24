@@ -98,28 +98,40 @@ impl MmlToSmfArgs {
         let mut instrument: Option<T::Item> = None;
         while let Some(arg) = iter.next() {
             match arg.as_ref() {
-                "--input" => input_file = iter.next(),
-                "--output" => output_file = iter.next(),
-                "--instrument" => instrument = iter.next(),
+                "--input" => match iter.next() {
+                    None => return Err("<mml-file>が指定されてまいません".into()),
+                    item => input_file = item,
+                },
+                "--output" => match iter.next() {
+                    None => return Err("<output-file>が指定されてまいません".into()),
+                    item => output_file = item,
+                },
+                "--instrument" => match iter.next() {
+                    None => return Err("<instrument-number>が指定されてまいません".into()),
+                    item => instrument = item,
+                },
                 unknown => return Err(format!("不明のオプション: {}", unknown)),
             }
         }
         let input_file = match input_file {
             Some(file) => file.as_ref().to_owned(),
-            None => return Err("<mml-file>が指定されていません".into()),
+            None => return Err("--input <mml-file>が指定されていません".into()),
         };
         let output_file = output_file.map(|s| s.as_ref().to_owned());
         let instrument = match instrument {
             None => mml_core::INSTRUMENTS[0],
             Some(num_str) => {
-                let num = match num_str.as_ref().parse::<usize>() {
+                let num_str = num_str.as_ref();
+                let num = match num_str.parse::<usize>() {
                     Ok(num) => num,
-                    Err(_) => return Err("<instrument-number>の指定が不正です".into()),
+                    Err(_) => {
+                        return Err(format!("<instrument-number>の指定が不正です: {}", num_str))
+                    }
                 };
                 if (1..=mml_core::INSTRUMENTS.len()).contains(&num) {
                     mml_core::INSTRUMENTS[num - 1]
                 } else {
-                    return Err("<instrument-number>の指定が不正です".into());
+                    return Err(format!("<instrument-number>の指定が不正です: {}", num_str));
                 }
             }
         };
