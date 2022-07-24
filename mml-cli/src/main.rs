@@ -27,13 +27,16 @@ fn show_usage() {
 {description}
 
 USAGE:
-    {bin_name} mml2smf --input <mml-file> [OPTIONS]
+    {bin_name} mml2smf <mml-file> [OPTIONS]
+            MMLが記述されたテキストファイルからSMFファイルを生成します
     {bin_name} list-instruments
+            mml2smfコマンドで使用できる楽器一覧を表示します
     {bin_name} [-h | --help]
+            このコマンドヘルプを表示します
 
 OPTIONS:
-    --output <output-file>
-    --instrument <instrument-number>
+    --output <output-file>              出力ファイル名を指定します
+    --instrument <instrument-number>    楽器番号を指定します
 "#,
         pkg_name = env!("CARGO_PKG_NAME"),
         version = env!("CARGO_PKG_VERSION"),
@@ -93,15 +96,14 @@ impl MmlToSmfArgs {
         T: Iterator,
         T::Item: AsRef<str>,
     {
-        let mut input_file: Option<T::Item> = None;
+        let input_file = match iter.next() {
+            None => return Err("<mml-file>が指定されていません".into()),
+            Some(file) => file.as_ref().to_owned(),
+        };
         let mut output_file: Option<T::Item> = None;
         let mut instrument: Option<T::Item> = None;
         while let Some(arg) = iter.next() {
             match arg.as_ref() {
-                "--input" => match iter.next() {
-                    None => return Err("<mml-file>が指定されてまいません".into()),
-                    item => input_file = item,
-                },
                 "--output" => match iter.next() {
                     None => return Err("<output-file>が指定されてまいません".into()),
                     item => output_file = item,
@@ -113,10 +115,6 @@ impl MmlToSmfArgs {
                 unknown => return Err(format!("不明のオプション: {}", unknown)),
             }
         }
-        let input_file = match input_file {
-            Some(file) => file.as_ref().to_owned(),
-            None => return Err("--input <mml-file>が指定されていません".into()),
-        };
         let output_file = output_file.map(|s| s.as_ref().to_owned());
         let instrument = match instrument {
             None => mml_core::INSTRUMENTS[0],
